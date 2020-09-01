@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Подписки | Yatube{% endblock %}
+{% block header %}
+     {% include "includes/menu.html" with index=True %}
+    <h1>Подписки</h1>
+
+{% endblock %}
+
+{% block content %}
+
+
+    {% for post in object_list %}
+        {% include 'includes/post_item.html' %}
+    {% endfor %}
+
+
+
+{% if is_paginated %}
+    {% include "paginator.html" %}
+{% endif %}
+{% endblock %}

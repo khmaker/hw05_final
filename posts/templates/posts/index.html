@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Последние обновления | Yatube{% endblock %}
+{% block header %}
+     {% include "includes/menu.html" with index=True %}
+    <h1>Последние обновления на сайте</h1>
+
+{% endblock %}
+
+{% block content %}
+
+    {% load cache %}
+    {% cache 20 index_page %}
+    {% for post in object_list %}
+        {% include 'includes/post_item.html' %}
+    {% endfor %}
+    {% endcache %}
+
+
+{% if is_paginated %}
+    {% include "paginator.html" %}
+{% endif %}
+{% endblock %}
