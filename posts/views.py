@@ -118,8 +118,7 @@ class PostView(DetailView):
         context['post_count'] = self.model.objects.filter(
                 author=author).count()
         context['author'] = author
-        context['following'] = Follow.objects.filter(user=self.user,
-                                                     author=author).exists()
+        context['following'] = author.follower.filter(user=self.user).exists()
         context['items'] = Comment.objects.filter(post=context['post']).all()
         context['form'] = CommentForm()
         return context
@@ -234,10 +233,9 @@ class ProfileFollowView(LoginRequiredMixin, View):
     def get(self, request, **kwargs):
         author = get_object_or_404(get_user_model(),
                                    username=self.kwargs['username'])
-        if request.user == author or Follow.objects.filter(
-                user=request.user, author=author).exists():
+        if request.user == author:
             return redirect("profile", username=self.kwargs['username'])
-        Follow.objects.create(user=request.user, author=author)
+        Follow.objects.get_or_create(user=request.user, author=author)
         return redirect("profile", username=self.kwargs['username'])
 
 

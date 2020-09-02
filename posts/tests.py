@@ -7,6 +7,8 @@ from django.test import Client, TestCase
 from django.urls import reverse
 from PIL import Image
 
+from tempfile import NamedTemporaryFile
+
 from posts.models import Follow, Group, Post
 
 User = get_user_model()
@@ -107,10 +109,10 @@ class PostTest(TestCase):
         на странице профайла и на странице группы пост с картинкой
         отображается корректно, с тегом <img>
         """
-        img = Image.new('RGB', (1, 1))
-        img.save('test.jpeg', 'jpeg')
         self.test_post_add()
-        with open('test.jpeg', 'rb') as image:
+        with NamedTemporaryFile(suffix='.jpeg') as image:
+            Image.new('RGB', (1, 1)).save(image, 'jpeg')
+            image.seek(0)
             self.client.post(reverse('post_edit',
                                      kwargs={
                                              'username': self.user.username,
@@ -121,7 +123,6 @@ class PostTest(TestCase):
                                      'text': 'image here',
                                      'image': image
                                      })
-        os.remove('test.jpeg')
         urls = (reverse('index'),
                 reverse('profile',
                         kwargs={'username': self.user.username}),
@@ -137,9 +138,9 @@ class PostTest(TestCase):
         проверка защиты от загрузки «неправильных» файлов
         """
         self.test_post_add()
-        with open('test.txt', 'w') as file:
-            file.write('Caramba!')
-        with open('test.txt', 'rb') as text:
+        with NamedTemporaryFile(suffix='.txt') as text:
+            text.write(b'This is not an image')
+            text.seek(0)
             r = self.client.post(
                     reverse('post_edit',
                             kwargs={
@@ -149,7 +150,6 @@ class PostTest(TestCase):
                             ),
                     data={'text': 'text here', 'image': text}
                     )
-        os.remove('test.txt')
         self.assertFormError(r,
                              'form',
                              'image',
@@ -189,15 +189,11 @@ class FollowTest(TestCase):
         на других пользователей
         """
         self.client.force_login(self.user)
-        self.assertEqual(0,
-                         Follow.objects.filter(
-                                 author=self.author.id).all().count())
+        self.assertFalse(Follow.objects.filter(author=self.author.id).exists())
         r = self.client.get(reverse('profile_follow',
                                     kwargs={'username': self.author.username}))
         self.assertEquals(r.status_code, 302)
-        self.assertEqual(1,
-                         Follow.objects.filter(
-                                 author=self.author.id).all().count())
+        self.assertTrue(Follow.objects.filter(author=self.author.id).exists())
 
     def test_unfollow(self):
         """
@@ -208,9 +204,7 @@ class FollowTest(TestCase):
         r = self.client.get(reverse('profile_unfollow',
                                     kwargs={'username': self.author.username}))
         self.assertEquals(r.status_code, 302)
-        self.assertEqual(0,
-                         Follow.objects.filter(
-                                 author=self.author.id).all().count())
+        self.assertFalse(Follow.objects.filter(author=self.author.id).exists())
 
     def create_post(self, message):
         self.client.force_login(self.author)
@@ -257,4 +251,3 @@ class FollowTest(TestCase):
                 'username': post.author.username, 'post_id': post.id
                 }))
         self.assertEquals(r.status_code, 302)
-

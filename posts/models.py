@@ -85,3 +85,6 @@ class Follow(models.Model):
                                related_name='following',
                                verbose_name='Подписки',
                                )
+
+    class Meta:
+        unique_together = ['user', 'author']
