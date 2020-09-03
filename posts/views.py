@@ -235,7 +235,7 @@ class ProfileFollowView(LoginRequiredMixin, View):
                                    username=self.kwargs['username'])
         if request.user != author:
             Follow.objects.get_or_create(user=request.user, author=author)
-        return redirect("profile", username=self.kwargs['username'])
+        return redirect('profile', username=self.kwargs['username'])
 
 
 class ProfileUnfollowView(LoginRequiredMixin, View):
@@ -244,4 +244,4 @@ class ProfileUnfollowView(LoginRequiredMixin, View):
                                    username=self.kwargs['username'])
         if request.user != author:
             Follow.objects.get(user=request.user, author=author).delete()
-        return redirect("profile", username=self.kwargs['username'])
+        return redirect('profile', username=self.kwargs['username'])
