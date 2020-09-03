@@ -1,5 +1,3 @@
-import os
-
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.cache.backends import locmem
@@ -17,7 +15,6 @@ User = get_user_model()
 class PostTest(TestCase):
 
     def setUp(self):
-        self.client = Client()
         self.user = User.objects.create_user(username='JohnDoe',
                                              email='doe.j@cia.gov',
                                              password='qwe123RTY')
@@ -110,9 +107,9 @@ class PostTest(TestCase):
         отображается корректно, с тегом <img>
         """
         self.test_post_add()
-        with NamedTemporaryFile(suffix='.jpeg') as image:
-            Image.new('RGB', (1, 1)).save(image, 'jpeg')
-            image.seek(0)
+        with NamedTemporaryFile(suffix='.jpeg') as file:
+            Image.new('RGB', (1, 1)).save(file, 'jpeg')
+            file.seek(0)
             self.client.post(reverse('post_edit',
                                      kwargs={
                                              'username': self.user.username,
@@ -121,7 +118,7 @@ class PostTest(TestCase):
                              data={
                                      'group': self.group.id,
                                      'text': 'image here',
-                                     'image': image
+                                     'image': file
                                      })
         urls = (reverse('index'),
                 reverse('profile',
@@ -138,9 +135,9 @@ class PostTest(TestCase):
         проверка защиты от загрузки «неправильных» файлов
         """
         self.test_post_add()
-        with NamedTemporaryFile(suffix='.txt') as text:
-            text.write(b'This is not an image')
-            text.seek(0)
+        with NamedTemporaryFile(suffix='.txt') as file:
+            file.write(b'This is not an image')
+            file.seek(0)
             r = self.client.post(
                     reverse('post_edit',
                             kwargs={
@@ -148,7 +145,7 @@ class PostTest(TestCase):
                                     'post_id': self.post.id
                                     }
                             ),
-                    data={'text': 'text here', 'image': text}
+                    data={'text': 'text here', 'image': file}
                     )
         self.assertFormError(r,
                              'form',
@@ -168,6 +165,7 @@ class PostTest(TestCase):
 
 
 class FollowTest(TestCase):
+    message = 'Hello, world!'
 
     def setUp(self):
         self.client = Client()
@@ -200,53 +198,60 @@ class FollowTest(TestCase):
         Авторизованный пользователь может удалять из подписок
         других пользователей
         """
-        self.test_follow()
+        Follow.objects.create(user=self.user, author=self.author)
+        self.client.force_login(self.user)
         r = self.client.get(reverse('profile_unfollow',
                                     kwargs={'username': self.author.username}))
         self.assertEquals(r.status_code, 302)
         self.assertFalse(Follow.objects.filter(author=self.author.id).exists())
 
-    def create_post(self, message):
-        self.client.force_login(self.author)
-        self.client.post(reverse('new_post'), data={'text': message})
+    def create_post(self):
+        return Post.objects.create(author=self.author, text=self.message)
 
-    def test_post_appearance_in_follow(self):
+    def test_post_appeared_in_follow(self):
         """
         Новая запись пользователя появляется в ленте тех, кто на него подписан
-        и не появляется в ленте тех, кто не подписан на него.
         """
-        message = 'Hello, world!'
-
-        self.client.force_login(self.pong)
-        r = self.client.get(reverse('follow_index'))
-        self.assertNotContains(r, message)
         self.client.force_login(self.user)
         r = self.client.get(reverse('follow_index'))
-        self.assertNotContains(r, message)
+        self.assertNotContains(r, self.message)
 
-        self.create_post(message)
-
-        self.test_follow()
+        self.create_post()
+        Follow.objects.create(user=self.user, author=self.author)
 
         r = self.client.get(reverse('follow_index'))
-        self.assertContains(r, message)
+        self.assertContains(r, self.message)
+
+    def test_post_did_not_appeared_in_follow(self):
+        """
+        Новая запись пользователя не появляется в ленте тех,
+        кто на него не подписан
+        """
         self.client.force_login(self.pong)
         r = self.client.get(reverse('follow_index'))
-        self.assertNotContains(r, message)
+        self.assertNotContains(r, self.message)
 
-    def test_comments_accessibility(self):
+        self.create_post()
+
+        r = self.client.get(reverse('follow_index'))
+        self.assertNotContains(r, self.message)
+
+    def test_comments_authorised_accessibility(self):
         """
-        Только авторизированный пользователь может комментировать посты.
+        Авторизированный пользователь может комментировать посты.
         """
-        message = 'Hello, world!'
-        self.create_post(message)
         self.client.force_login(self.user)
-        post = Post.objects.filter(text=message).first()
+        post = self.create_post()
         r = self.client.get(reverse('add_comment', kwargs={
                 'username': post.author.username, 'post_id': post.id
                 }))
         self.assertEquals(r.status_code, 200)
-        self.client.logout()
+
+    def test_comments_unauthorised_accessibility(self):
+        """
+        Невторизированный пользователь не может комментировать посты.
+        """
+        post = self.create_post()
         r = self.client.get(reverse('add_comment', kwargs={
                 'username': post.author.username, 'post_id': post.id
                 }))

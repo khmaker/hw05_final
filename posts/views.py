@@ -233,9 +233,8 @@ class ProfileFollowView(LoginRequiredMixin, View):
     def get(self, request, **kwargs):
         author = get_object_or_404(get_user_model(),
                                    username=self.kwargs['username'])
-        if request.user == author:
-            return redirect("profile", username=self.kwargs['username'])
-        Follow.objects.get_or_create(user=request.user, author=author)
+        if request.user != author:
+            Follow.objects.get_or_create(user=request.user, author=author)
         return redirect("profile", username=self.kwargs['username'])
 
 
@@ -243,7 +242,6 @@ class ProfileUnfollowView(LoginRequiredMixin, View):
     def get(self, request, **kwargs):
         author = get_object_or_404(get_user_model(),
                                    username=self.kwargs['username'])
-        if request.user == author:
-            return redirect("profile", username=self.kwargs['username'])
-        Follow.objects.get(user=request.user, author=author).delete()
+        if request.user != author:
+            Follow.objects.get(user=request.user, author=author).delete()
         return redirect("profile", username=self.kwargs['username'])
