@@ -243,5 +243,5 @@ class ProfileUnfollowView(LoginRequiredMixin, View):
         author = get_object_or_404(get_user_model(),
                                    username=self.kwargs['username'])
         if request.user != author:
-            Follow.objects.get(user=request.user, author=author).delete()
+            Follow.objects.filter(user=request.user, author=author).delete()
         return redirect('profile', username=self.kwargs['username'])
