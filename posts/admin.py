@@ -1,6 +1,7 @@
+# coding=utf-8
 from django.contrib import admin
 
-from .models import Post, Group, Comment
+from posts.models import Comment, Group, Post
 
 
 class PostAdmin(admin.ModelAdmin):

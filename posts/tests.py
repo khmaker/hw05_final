@@ -1,11 +1,12 @@
+# coding=utf-8
+from tempfile import NamedTemporaryFile
+
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.core.cache.backends import locmem
 from django.test import Client, TestCase
 from django.urls import reverse
 from PIL import Image
-
-from tempfile import NamedTemporaryFile
 
 from posts.models import Follow, Group, Post
 
@@ -15,13 +16,17 @@ User = get_user_model()
 class PostTest(TestCase):
 
     def setUp(self):
-        self.user = User.objects.create_user(username='JohnDoe',
-                                             email='doe.j@cia.gov',
-                                             password='qwe123RTY')
+        self.user = User.objects.create_user(
+            username='JohnDoe',
+            email='doe.j@cia.gov',
+            password='qwe123RTY',
+        )
 
-        self.group = Group.objects.create(slug='CIA',
-                                          title='CIA',
-                                          description='CIA')
+        self.group = Group.objects.create(
+            slug='CIA',
+            title='CIA',
+            description='CIA',
+        )
 
     def test_new_post_unauthorized_access(self):
         """
@@ -59,17 +64,25 @@ class PostTest(TestCase):
         """
         self.message = 'Secret Information'
         self.client.force_login(self.user)
-        self.client.post(reverse('new_post'), data={
+        self.client.post(
+            reverse('new_post'), data={
                 'group': self.group.id,
                 'text': self.message,
-                })
+            }
+        )
         self.post = Post.objects.get(author=self.user, text=self.message)
         urls = (reverse('index'),
-                reverse('profile', kwargs={'username': self.user.username}),
-                reverse('post', kwargs={
+                reverse(
+                    'profile',
+                    kwargs={'username': self.user.username}
+                ),
+                reverse(
+                    'post', kwargs={
                         'username': self.user.username,
                         'post_id': self.post.id
-                        }))
+                    }
+                ),
+                )
         self.check_text_presence_at_urls(self.message, urls)
 
     def test_post_edit(self):
@@ -79,24 +92,38 @@ class PostTest(TestCase):
         """
         self.test_post_add()
         edited_message = 'Top Secret Information'
-        r = self.client.post(reverse('post_edit',
-                                     kwargs={
-                                             'username': self.user.username,
-                                             'post_id': self.post.id
-                                             }),
-                             {'text': edited_message}, follow=True)
-        self.assertRedirects(r, reverse('post',
-                                        kwargs={
-                                                'username': self.user.username,
-                                                'post_id': self.post.id
-                                                }))
+        r = self.client.post(
+            reverse(
+                'post_edit',
+                kwargs={
+                    'username': self.user.username,
+                    'post_id': self.post.id
+                }
+            ),
+            {'text': edited_message}, follow=True
+        )
+        self.assertRedirects(
+            r,
+            reverse(
+                'post',
+                kwargs={
+                    'username': self.user.username,
+                    'post_id': self.post.id
+                }
+            )
+        )
         urls = (reverse('index'),
-                reverse('profile',
-                        kwargs={'username': self.user.username}),
-                reverse('post', kwargs={
+                reverse(
+                    'profile',
+                    kwargs={'username': self.user.username}
+                ),
+                reverse(
+                    'post', kwargs={
                         'username': self.user.username,
                         'post_id': self.post.id
-                        }))
+                    }
+                ),
+                )
         self.check_text_presence_at_urls(edited_message, urls)
 
     def test_post_image_presence(self):
@@ -110,24 +137,36 @@ class PostTest(TestCase):
         with NamedTemporaryFile(suffix='.jpeg') as file:
             Image.new('RGB', (1, 1)).save(file, 'jpeg')
             file.seek(0)
-            self.client.post(reverse('post_edit',
-                                     kwargs={
-                                             'username': self.user.username,
-                                             'post_id': self.post.id
-                                             }),
-                             data={
-                                     'group': self.group.id,
-                                     'text': 'image here',
-                                     'image': file
-                                     })
-        urls = (reverse('index'),
-                reverse('profile',
-                        kwargs={'username': self.user.username}),
-                reverse('post', kwargs={
+            self.client.post(
+                reverse(
+                    'post_edit',
+                    kwargs={
                         'username': self.user.username,
                         'post_id': self.post.id
-                        }),
-                reverse('group_posts', kwargs={'slug': self.group.slug}))
+                    }
+                ),
+                data={
+                    'group': self.group.id,
+                    'text': 'image here',
+                    'image': file
+                }
+            )
+        urls = (reverse('index'),
+                reverse(
+                    'profile',
+                    kwargs={'username': self.user.username}
+                ),
+                reverse(
+                    'post', kwargs={
+                        'username': self.user.username,
+                        'post_id': self.post.id
+                    }
+                ),
+                reverse(
+                    'group_posts',
+                    kwargs={'slug': self.group.slug}
+                ),
+                )
         self.check_text_presence_at_urls('<img', urls)
 
     def test_file_type_protection(self):
@@ -139,20 +178,22 @@ class PostTest(TestCase):
             file.write(b'This is not an image')
             file.seek(0)
             r = self.client.post(
-                    reverse('post_edit',
-                            kwargs={
-                                    'username': self.user.username,
-                                    'post_id': self.post.id
-                                    }
-                            ),
-                    data={'text': 'text here', 'image': file}
-                    )
-        self.assertFormError(r,
-                             'form',
-                             'image',
-                             'Загрузите правильное изображение. '
-                             'Файл, который вы загрузили, '
-                             'поврежден или не является изображением.')
+                reverse(
+                    'post_edit',
+                    kwargs={
+                        'username': self.user.username,
+                        'post_id': self.post.id
+                    }
+                ),
+                data={'text': 'text here', 'image': file}
+            )
+        self.assertFormError(
+            r,
+            'form',
+            'image',
+            'Загрузите правильное изображение. Файл, который вы загрузили, '
+            'поврежден или не является изображением.'
+        )
 
     def test_cache(self):
         self.test_post_add()
@@ -169,17 +210,23 @@ class FollowTest(TestCase):
 
     def setUp(self):
         self.client = Client()
-        self.user = User.objects.create_user(username='JohnDoe',
-                                             email='doe.j@cia.gov',
-                                             password='qwe123RTY')
+        self.user = User.objects.create_user(
+            username='JohnDoe',
+            email='doe.j@cia.gov',
+            password='qwe123RTY'
+        )
 
-        self.author = User.objects.create_user(username='Ping',
-                                               email='pingj@cia.gov',
-                                               password='qwe123RTY')
+        self.author = User.objects.create_user(
+            username='Ping',
+            email='pingj@cia.gov',
+            password='qwe123RTY'
+        )
 
-        self.pong = User.objects.create_user(username='Pong',
-                                             email='Pongj@cia.gov',
-                                             password='qwe123RTY')
+        self.pong = User.objects.create_user(
+            username='Pong',
+            email='Pongj@cia.gov',
+            password='qwe123RTY'
+        )
 
     def test_follow(self):
         """
@@ -188,8 +235,12 @@ class FollowTest(TestCase):
         """
         self.client.force_login(self.user)
         self.assertFalse(Follow.objects.filter(author=self.author.id).exists())
-        r = self.client.get(reverse('profile_follow',
-                                    kwargs={'username': self.author.username}))
+        r = self.client.get(
+            reverse(
+                'profile_follow',
+                kwargs={'username': self.author.username}
+            )
+        )
         self.assertEquals(r.status_code, 302)
         self.assertTrue(Follow.objects.filter(author=self.author.id).exists())
 
@@ -200,8 +251,12 @@ class FollowTest(TestCase):
         """
         Follow.objects.create(user=self.user, author=self.author)
         self.client.force_login(self.user)
-        r = self.client.get(reverse('profile_unfollow',
-                                    kwargs={'username': self.author.username}))
+        r = self.client.get(
+            reverse(
+                'profile_unfollow',
+                kwargs={'username': self.author.username}
+            )
+        )
         self.assertEquals(r.status_code, 302)
         self.assertFalse(Follow.objects.filter(author=self.author.id).exists())
 
@@ -242,9 +297,13 @@ class FollowTest(TestCase):
         """
         self.client.force_login(self.user)
         post = self.create_post()
-        r = self.client.get(reverse('add_comment', kwargs={
-                'username': post.author.username, 'post_id': post.id
-                }))
+        r = self.client.get(
+            reverse(
+                'add_comment', kwargs={
+                    'username': post.author.username, 'post_id': post.id
+                }
+            )
+        )
         self.assertEquals(r.status_code, 200)
 
     def test_comments_unauthorised_accessibility(self):
@@ -252,7 +311,11 @@ class FollowTest(TestCase):
         Невторизированный пользователь не может комментировать посты.
         """
         post = self.create_post()
-        r = self.client.get(reverse('add_comment', kwargs={
-                'username': post.author.username, 'post_id': post.id
-                }))
+        r = self.client.get(
+            reverse(
+                'add_comment', kwargs={
+                    'username': post.author.username, 'post_id': post.id
+                }
+            )
+        )
         self.assertEquals(r.status_code, 302)

@@ -1,6 +1,7 @@
+# coding=utf-8
 from django.views.generic import CreateView
 
-from .forms import CreationForm
+from users.forms import CreationForm
 
 
 class SignUpView(CreateView):
